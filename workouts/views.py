@@ -12,6 +12,7 @@ from itertools import groupby
 from operator import attrgetter
 from .services import recalculate_prs
 from django.contrib.auth import logout
+from django.db.models import Count
 
 @login_required
 def pr_add(request):
@@ -105,7 +106,9 @@ def dashboard(request):
     month_name = calendar.month_name[month]
 
     # Recent workouts (unfiltered, last 5)
-    recent_workouts = Workout.objects.filter(user=request.user)[:5]
+    recent_workouts = Workout.objects.filter(user=request.user).annotate(
+    set_count=Count('sets')
+).filter(set_count__gt=0)[:5]
 
     # Filtered workouts list (for exercise filter display)
     filtered_sets = []
@@ -324,10 +327,12 @@ def api_delete_set(request):
 
         ws = get_object_or_404(WorkoutSet, pk=set_id, workout__user=request.user)
         exercise = ws.exercise  # grab before deleting
+        workout = ws.workout     # grab before deleting
         ws.delete()
 
-        # Recalculate PRs since removing a set might shift records
-        recalculate_prs(request.user, exercise)
+        # If the workout has no sets left, delete it
+        if not workout.sets.exists():
+            workout.delete()
 
         return JsonResponse({'status': 'ok'})
 
@@ -337,7 +342,9 @@ def api_delete_set(request):
 
 @login_required
 def workout_history(request):
-    workouts = Workout.objects.filter(user=request.user).prefetch_related('sets__exercise')
+    workouts = Workout.objects.filter(user=request.user).annotate(
+    set_count=Count('sets')
+).filter(set_count__gt=0).prefetch_related('sets__exercise')
     return render(request, 'workouts/workout_history.html', {
         'workouts': workouts,
     })
