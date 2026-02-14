@@ -25,7 +25,7 @@ class Migration(migrations.Migration):
                     ("reps", "Rep PR"),
                     ("sets", "Set PR"),
                 ],
-                default=django.utils.timezone.now,
+                default="weight",
                 max_length=10,
             ),
             preserve_default=False,
