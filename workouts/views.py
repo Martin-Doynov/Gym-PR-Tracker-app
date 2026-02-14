@@ -333,7 +333,9 @@ def api_delete_set(request):
         # If the workout has no sets left, delete it
         if not workout.sets.exists():
             workout.delete()
-
+        # Recalculate PRs since removing a set might shift records
+        recalculate_prs(request.user, exercise)
+        
         return JsonResponse({'status': 'ok'})
 
     except Exception as e:
