@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Add Exercise{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 style="margin-bottom: 20px;">Add Exercise</h2>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Add Exercise</button>
+        <a href="{% url 'exercise_list' %}" style="margin-left: 10px; color: #666;">Cancel</a>
+    </form>
+</div>
+{% endblock %}

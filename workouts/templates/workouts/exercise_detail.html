@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}{{ exercise.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .exercise-photo {
+        max-width: 100%;
+        max-height: 400px;
+        border-radius: 8px;
+        margin-top: 15px;
+        object-fit: contain;
+    }
+    .exercise-meta {
+        font-size: 12px;
+        color: #94a3b8;
+        margin-top: 10px;
+    }
+    .exercise-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>{{ exercise.name }}
+        {% if exercise.user is None %}
+            <span style="font-size: 12px; color: #888; font-weight: normal;">(Standard)</span>
+        {% else %}
+            <span style="font-size: 12px; color: #2563eb; font-weight: normal;">(Custom)</span>
+        {% endif %}
+    </h2>
+
+    {% if exercise.description %}
+        <p style="color: #555; margin-top: 10px; line-height: 1.6;">{{ exercise.description }}</p>
+    {% else %}
+        <p style="color: #aaa; margin-top: 10px; font-style: italic;">No description provided.</p>
+    {% endif %}
+
+    {% if exercise.photo %}
+        <img src="{{ exercise.photo.url }}" alt="{{ exercise.name }}" class="exercise-photo">
+    {% endif %}
+
+    {% if exercise.user %}
+        <p class="exercise-meta">Created by {{ exercise.user.username }}</p>
+    {% endif %}
+
+    <div class="exercise-actions">
+        <a href="{% url 'exercise_list' %}" class="btn" style="background: #6b7280;">← Back</a>
+        {% if can_edit %}
+            <a href="{% url 'exercise_edit' exercise.pk %}" class="btn" style="background: #2563eb;">Edit</a>
+            <a href="{% url 'exercise_delete' exercise.pk %}" class="btn" style="background: #dc2626;">Delete</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

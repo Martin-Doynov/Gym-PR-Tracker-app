@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% load workout_tags %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+        margin-bottom: 20px;
+    }
+    .calendar-header {
+        text-align: center;
+        font-weight: 700;
+        font-size: 13px;
+        color: #666;
+        padding: 8px 0;
+    }
+    .calendar-day {
+        text-align: center;
+        padding: 10px 4px;
+        border-radius: 6px;
+        font-size: 14px;
+        min-height: 40px;
+    }
+    .calendar-day.empty {
+        background: none;
+    }
+    .calendar-day.normal {
+        background: #f9fafb;
+        color: #333;
+        cursor: pointer;
+    }
+    .calendar-day.normal:hover {
+        background: #e2e8f0;
+    }
+    .calendar-day.has-workout {
+        background: #bbf7d0;
+        color: #166534;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .calendar-day.has-workout:hover {
+        background: #86efac;
+    }
+    .calendar-day.has-pr {
+        background: #fef3c7;
+        color: #92400e;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .calendar-day.has-pr:hover {
+        background: #fde68a;
+    }
+    .calendar-day.has-workout.has-pr {
+        background: linear-gradient(135deg, #bbf7d0 50%, #fef3c7 50%);
+    }
+    .calendar-day.today {
+        outline: 2px solid #2563eb;
+        outline-offset: -2px;
+    }
+    .calendar-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    .calendar-nav a {
+        color: #2563eb;
+        text-decoration: none;
+        font-size: 14px;
+        padding: 6px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    .calendar-nav a:hover {
+        background: #f0f0f0;
+    }
+    .calendar-nav h2 {
+        margin: 0;
+    }
+    .filter-bar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+    }
+    .filter-bar select {
+        width: auto;
+        min-width: 200px;
+        margin-bottom: 0;
+    }
+    .filtered-workout {
+        padding: 10px 0;
+        border-bottom: 1px solid #eee;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 20px;">Welcome, {{ user.username }}!</h1>
+
+<!-- Exercise filter -->
+<div class="card">
+    <form method="get" class="filter-bar">
+        <label for="exercise-filter" style="margin-bottom: 0;">Filter by exercise:</label>
+        <select name="exercise" id="exercise-filter" onchange="this.form.submit()">
+            <option value="">All exercises</option>
+            {% for ex in exercises %}
+            <option value="{{ ex.pk }}" {% if exercise_filter_id == ex.pk %}selected{% endif %}>{{ ex.name }}</option>
+            {% endfor %}
+        </select>
+        <label style="display: flex; align-items: center; gap: 4px; font-size: 14px; margin-bottom: 0;">
+            <input type="checkbox" name="show_prs" value="1"
+                   {% if show_prs %}checked{% endif %}
+                   onchange="this.form.submit()">
+            Show PRs
+        </label>
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="month" value="{{ month }}">
+    </form>
+
+    <!-- Calendar navigation -->
+    <div class="calendar-nav">
+        <a href="?year={{ prev_year }}&month={{ prev_month }}{% if exercise_filter_id %}&exercise={{ exercise_filter_id }}{% endif %}{% if show_prs %}&show_prs=1{% endif %}">◀ Prev</a>
+        <h2>{{ month_name }} {{ year }}</h2>
+        <a href="?year={{ next_year }}&month={{ next_month }}{% if exercise_filter_id %}&exercise={{ exercise_filter_id }}{% endif %}{% if show_prs %}&show_prs=1{% endif %}">Next ▶</a>
+    </div>
+
+    <!-- Calendar grid -->
+    <div class="calendar-grid">
+        <div class="calendar-header">Mon</div>
+        <div class="calendar-header">Tue</div>
+        <div class="calendar-header">Wed</div>
+        <div class="calendar-header">Thu</div>
+        <div class="calendar-header">Fri</div>
+        <div class="calendar-header">Sat</div>
+        <div class="calendar-header">Sun</div>
+
+        {% for week in month_days %}
+            {% for day in week %}
+                {% if day == 0 %}
+                    <div class="calendar-day empty"></div>
+                {% else %}
+                    {% if day in workout_dates %}
+                        <div class="calendar-day has-workout {% if day in pr_dates %}has-pr{% endif %} {% if day == today.day and month == today.month and year == today.year %}today{% endif %}"
+                            onclick="window.location.href='/workout/{{ year }}-{{ month|pad2 }}-{{ day|pad2 }}/'">
+                            {{ day }}
+                        </div>
+                    {% else %}
+                        <div class="calendar-day normal {% if day in pr_dates %}has-pr{% endif %} {% if day == today.day and month == today.month and year == today.year %}today{% endif %}"
+                            onclick="window.location.href='/workout/{{ year }}-{{ month|pad2 }}-{{ day|pad2 }}/'">
+                            {{ day }}
+                        </div>
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Filtered exercise results -->
+{% if exercise_filter_id and filtered_sets %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h2>Filtered Results</h2>
+        <button type="button" onclick="toggleFilterView()"
+                style="background: none; border: 1px solid #ddd; border-radius: 4px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: #666;">
+            Toggle detail view
+        </button>
+    </div>
+
+    <div id="filter-compact-view">
+        {% for item in filtered_sets %}
+        <div class="filtered-workout">
+            <a href="/workout/{{ item.date|date:'Y-m-d' }}/" style="color: #2563eb; text-decoration: none; font-weight: 600;">
+                {{ item.date }}
+            </a>
+            <span style="color: #555;"> — {{ item.compact }}</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div id="filter-detail-view" style="display: none;">
+        {% for item in filtered_sets %}
+        <div class="filtered-workout">
+            <a href="/workout/{{ item.date|date:'Y-m-d' }}/" style="color: #2563eb; text-decoration: none; font-weight: 600;">
+                {{ item.date }}
+            </a>
+            <ul style="list-style: none; padding: 0; margin-top: 4px;">
+            {% for s in item.sets %}
+                <li style="color: #666; font-size: 14px; padding: 2px 0;">
+                    Set {{ s.set_number }}: {{ s.reps }} reps @ {{ s.weight }}kg
+                </li>
+            {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Filtered PR results -->
+{% if show_prs and filtered_prs %}
+<div class="card">
+    <h2>🏆 PRs in {{ month_name }} {{ year }}</h2>
+    {% for item in filtered_prs %}
+    <div class="filtered-workout">
+        <a href="/workout/{{ item.date|date:'Y-m-d' }}/" style="color: #2563eb; text-decoration: none; font-weight: 600;">
+            {{ item.date }}
+        </a>
+        <ul style="list-style: none; padding: 0; margin-top: 4px;">
+        {% for pr in item.prs %}
+            <li style="color: #666; font-size: 14px; padding: 2px 0;">
+                <span style="display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 11px; font-weight: 600; color: white; margin-right: 4px;
+                    {% if pr.pr_type == 'weight' %}background: #2563eb;{% elif pr.pr_type == 'reps' %}background: #16a34a;{% else %}background: #9333ea;{% endif %}">
+                    {{ pr.get_pr_type_display }}
+                </span>
+                {{ pr.exercise.name }}:
+                {% if pr.pr_type == "sets" %}
+                    {{ pr.sets }}x{{ pr.reps }}x{{ pr.weight }}
+                {% else %}
+                    {{ pr.reps }} reps @ {{ pr.weight }}kg
+                {% endif %}
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if show_prs and not filtered_prs %}
+<div class="card">
+    <p style="color: #888;">No PRs found in {{ month_name }} {{ year }}.</p>
+</div>
+{% endif %}
+
+{% if exercise_filter_id and not filtered_sets %}
+<div class="card">
+    <p style="color: #888;">No workouts found for this exercise in {{ month_name }} {{ year }}.</p>
+</div>
+{% endif %}
+
+<!-- Recent workouts -->
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h2>Recent Workouts</h2>
+        <a href="{% url 'workout_history' %}" style="color: #2563eb; font-size: 14px;">View all →</a>
+    </div>
+    {% if recent_workouts %}
+        <ul style="list-style: none; padding: 0;">
+        {% for workout in recent_workouts %}
+            <li style="padding: 10px 0; border-bottom: 1px solid #eee;">
+                <a href="/workout/{{ workout.date|date:'Y-m-d' }}/" style="color: #2563eb; text-decoration: none; font-weight: 600;">
+                    {{ workout.date }}
+                </a>
+                <span style="color: #888;"> — {{ workout.sets.count }} sets</span>
+                {% if workout.notes %}
+                    <p style="color: #666; font-size: 14px; margin-top: 4px;">{{ workout.notes }}</p>
+                {% endif %}
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p style="color: #888;">No workouts logged yet.</p>
+    {% endif %}
+</div>
+
+<div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+    <a href="{% url 'workout_today' %}" class="btn" style="background: #16a34a;">Log Today's Workout</a>
+    <a href="{% url 'exercise_list' %}" class="btn" style="background: #6b7280;">Exercises</a>
+</div>
+
+<script>
+function toggleFilterView() {
+    var compact = document.getElementById('filter-compact-view');
+    var detail = document.getElementById('filter-detail-view');
+    if (compact.style.display === 'none') {
+        compact.style.display = 'block';
+        detail.style.display = 'none';
+    } else {
+        compact.style.display = 'none';
+        detail.style.display = 'block';
+    }
+}
+</script>
+{% endblock %}

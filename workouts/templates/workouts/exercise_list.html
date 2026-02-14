@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Exercises{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-bar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .search-bar input {
+        flex: 1;
+        min-width: 200px;
+        padding: 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 14px;
+    }
+    .sort-btn {
+        background: none;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 10px 14px;
+        cursor: pointer;
+        font-size: 14px;
+        color: #334155;
+    }
+    .sort-btn:hover {
+        background: #f1f5f9;
+    }
+    .exercise-card {
+        cursor: pointer;
+    }
+    .exercise-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h1>Exercises</h1>
+    <a href="{% url 'exercise_add' %}" class="btn">+ Add Exercise</a>
+</div>
+
+<div class="search-bar">
+    <input type="text" id="search-input" placeholder="Search exercises..." oninput="filterExercises()">
+    <button class="sort-btn" onclick="toggleSort()" id="sort-btn" title="Sort order">A→Z ↓</button>
+</div>
+
+<div id="exercise-list">
+    {% for exercise in exercises %}
+    <a href="{% url 'exercise_detail' exercise.pk %}" style="text-decoration: none; color: inherit; display: block;" class="exercise-link" data-name="{{ exercise.name|lower }}">
+    <div class="card exercise-card">
+        <h3>{{ exercise.name }}
+            {% if exercise.user is None %}
+                <span style="font-size: 12px; color: #888; font-weight: normal;">(Standard)</span>
+            {% else %}
+                <span style="font-size: 12px; color: #2563eb; font-weight: normal;">(Custom)</span>
+            {% endif %}
+        </h3>
+        {% if exercise.description %}
+            <p style="color: #666; margin-top: 5px;">{{ exercise.description }}</p>
+        {% endif %}
+    </div>
+    </a>
+    {% empty %}
+        <p style="color: #888;">No exercises available.</p>
+    {% endfor %}
+</div>
+
+<p id="no-results" style="color: #888; display: none;">No exercises match your search.</p>
+
+<script>
+let sortAsc = true;
+
+function filterExercises() {
+    const query = document.getElementById('search-input').value.toLowerCase();
+    const links = document.querySelectorAll('.exercise-link');
+    let visibleCount = 0;
+
+    links.forEach(link => {
+        const name = link.dataset.name;
+        if (name.includes(query)) {
+            link.style.display = 'block';
+            visibleCount++;
+        } else {
+            link.style.display = 'none';
+        }
+    });
+
+    document.getElementById('no-results').style.display = visibleCount === 0 ? 'block' : 'none';
+}
+
+function toggleSort() {
+    sortAsc = !sortAsc;
+    const container = document.getElementById('exercise-list');
+    const links = Array.from(container.querySelectorAll('.exercise-link'));
+
+    links.sort((a, b) => {
+        const nameA = a.dataset.name;
+        const nameB = b.dataset.name;
+        return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+    });
+
+    links.forEach(link => container.appendChild(link));
+
+    document.getElementById('sort-btn').textContent = sortAsc ? 'A→Z ↓' : 'Z→A ↑';
+}
+</script>
+{% endblock %}

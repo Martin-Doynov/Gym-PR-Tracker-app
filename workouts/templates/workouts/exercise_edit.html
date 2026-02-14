@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Edit — {{ exercise.name }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 style="margin-bottom: 20px;">Edit Exercise</h2>
+
+    {% if exercise.photo %}
+        <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+            Current photo:
+        </p>
+        <img src="{{ exercise.photo.url }}" alt="{{ exercise.name }}"
+             style="max-width: 200px; border-radius: 6px; margin-bottom: 15px;">
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button type="submit" class="btn">Save Changes</button>
+            <a href="{% url 'exercise_detail' exercise.pk %}" class="btn" style="background: #6b7280;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

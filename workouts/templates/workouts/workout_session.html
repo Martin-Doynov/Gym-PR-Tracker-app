@@ -1,0 +1,505 @@
+{% extends "base.html" %}
+
+{% block title %}Workout — {{ date }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .exercise-search-wrapper {
+        position: relative;
+    }
+    .exercise-search-wrapper input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 14px;
+        margin-bottom: 0;
+    }
+    .exercise-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #cbd5e1;
+        border-top: none;
+        border-radius: 0 0 6px 6px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 100;
+        display: none;
+    }
+    .exercise-dropdown .option {
+        padding: 10px 12px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    .exercise-dropdown .option:hover {
+        background: #f1f5f9;
+    }
+    .exercise-dropdown .no-match {
+        padding: 10px 12px;
+        color: #94a3b8;
+        font-size: 14px;
+    }
+
+    .quick-row {
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+        padding: 10px;
+        background: #f9fafb;
+        border-radius: 4px;
+    }
+    .quick-row select, .quick-row input[type="text"] {
+        margin-bottom: 0;
+    }
+    .remove-row-btn {
+        background: #dc2626;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 10px 14px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+    .remove-row-btn:hover { background: #b91c1c; }
+    .add-row-btn {
+        background: #16a34a;
+        margin-top: 5px;
+    }
+    .add-row-btn:hover { background: #15803d; }
+    .toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 6px;
+        color: white;
+        font-size: 14px;
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    .toast.show { opacity: 1; }
+    .toast.success { background: #16a34a; }
+    .toast.error { background: #dc2626; }
+    .toast.pr { background: #d97706; font-weight: 600; }
+    .saved-set {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        border-bottom: 1px solid #eee;
+    }
+    .delete-set-btn {
+        background: none;
+        border: none;
+        color: #dc2626;
+        cursor: pointer;
+        font-size: 18px;
+        padding: 4px 8px;
+    }
+    .delete-set-btn:hover { background: #fee2e2; border-radius: 4px; }
+
+    .pr-toggle {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        opacity: 0.3;
+        transition: opacity 0.2s;
+    }
+    .pr-toggle:hover { opacity: 0.7; }
+    .pr-toggle.active { opacity: 1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="workout-data"
+     data-workout-id="{{ workout.id|default:'' }}"
+     data-workout-date="{{ date|date:'Y-m-d' }}"
+     data-csrf-token="{{ csrf_token }}"
+     data-add-sets-url="{% url 'api_add_sets' %}"
+     data-delete-set-url="{% url 'api_delete_set' %}"
+     data-toggle-pr-url="{% url 'api_toggle_pr' %}"
+     style="display:none;">
+</div>
+
+
+<h1 style="margin-bottom: 5px;">Workout — {{ date }}</h1>
+<p style="color: #888; margin-bottom: 20px;">Sets are saved instantly. No data is lost if you close the page.</p>
+
+<!-- Saved sets -->
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h3>Saved Sets</h3>
+        <button type="button" onclick="toggleView()" 
+                style="background: none; border: 1px solid #ddd; border-radius: 4px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: #666;">
+            Toggle detail view
+        </button>
+    </div>
+
+    <!-- Compact view (default) -->
+    <div id="compact-view">
+        {% for group in grouped_sets %}
+        <div style="padding: 6px 0; border-bottom: 1px solid #eee;">
+            <strong>{{ group.exercise.name }}:</strong>
+            <span style="color: #555;">{{ group.compact }}</span>
+        </div>
+        {% empty %}
+        <p style="color: #888;">No sets logged yet.</p>
+        {% endfor %}
+    </div>
+
+    <!-- Detail view (hidden by default) -->
+    <div id="detail-view" style="display: none;">
+        <div id="saved-sets">
+            {% for s in saved_sets %}
+            <div class="saved-set" data-set-id="{{ s.id }}">
+                <span>{{ s.exercise.name }} — Set {{ s.set_number }}: {{ s.reps }} reps @ {{ s.weight }}kg</span>
+                <span>
+                    <button class="pr-toggle" onclick="togglePR({{ s.id }}, this)" title="Mark as PR">🏆</button>
+                    <button class="delete-set-btn" onclick="deleteSet({{ s.id }})" title="Delete">✕</button>
+                </span>
+            </div>
+            {% empty %}
+            <p id="no-sets-msg" style="color: #888;">No sets logged yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Quick entry -->
+<div class="card">
+    <h3 style="margin-bottom: 10px;">Add Sets</h3>
+    <p style="color: #888; font-size: 14px; margin-bottom: 10px;">
+        Format: SETxREPSxWEIGHT (e.g. 1x15x20, 2x15x25)
+    </p>
+
+    <div id="quick-entry-container">
+        <div class="quick-row">
+            <div style="flex: 1; min-width: 150px;" class="exercise-search-wrapper">
+                <label>Exercise</label>
+                <input type="text" class="exercise-search" placeholder="Search exercise..." autocomplete="off"
+                       onfocus="showExerciseDropdown(this)" oninput="filterExerciseDropdown(this)">
+                <input type="hidden" name="quick_exercise" value="">
+                <div class="exercise-dropdown">
+                    {% for ex in exercises %}
+                    <div class="option" data-value="{{ ex.pk }}" data-name="{{ ex.name|lower }}"
+                         onclick="selectExercise(this)">{{ ex.name }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div style="flex: 2; min-width: 200px;">
+                <label>Sets</label>
+                <input type="text" name="quick_sets_text" placeholder="e.g. 1x15x20, 2x15x25">
+            </div>
+            <div style="display: flex; gap: 5px;">
+                <button type="button" class="btn" onclick="submitRow(this)" style="padding: 10px 14px;">Save</button>
+                <button type="button" class="remove-row-btn" onclick="removeQuickRow(this)" title="Remove">✕</button>
+            </div>
+        </div>
+    </div>
+    <button type="button" class="btn add-row-btn" onclick="addQuickRow()">+ Add exercise</button>
+</div>
+
+<div style="margin-top: 10px;">
+    <a href="{% url 'dashboard' %}" class="btn" style="background: #6b7280;">← Back to Dashboard</a>
+</div>
+
+<!-- Toast notification -->
+<div id="toast" class="toast"></div>
+
+<script>
+const dataEl = document.getElementById('workout-data');
+const WORKOUT_ID = dataEl.dataset.workoutId || null;
+const WORKOUT_DATE = dataEl.dataset.workoutDate;
+const CSRF_TOKEN = dataEl.dataset.csrfToken;
+const ADD_SETS_URL = dataEl.dataset.addSetsUrl;
+const DELETE_SET_URL = dataEl.dataset.deleteSetUrl;
+
+function showToast(message, type, duration) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = 'toast ' + type + ' show';
+    setTimeout(() => { toast.classList.remove('show'); }, duration || 2500);
+}
+
+function addQuickRow() {
+    const container = document.getElementById('quick-entry-container');
+    const firstRow = container.querySelector('.quick-row');
+    const newRow = firstRow.cloneNode(true);
+    newRow.querySelector('.exercise-search').value = '';
+    newRow.querySelector('input[name="quick_exercise"]').value = '';
+    newRow.querySelector('input[type="text"]:not(.exercise-search)').value = '';
+    newRow.querySelector('.exercise-dropdown').style.display = 'none';
+    container.appendChild(newRow);
+}
+
+function removeQuickRow(button) {
+    const container = document.getElementById('quick-entry-container');
+    const rows = container.querySelectorAll('.quick-row');
+    if (rows.length > 1) {
+        button.closest('.quick-row').remove();
+    }
+}
+
+function submitRow(button) {
+    const row = button.closest('.quick-row');
+    const exerciseId = row.querySelector('input[name="quick_exercise"]').value;
+    const setsText = row.querySelector('input[type="text"]:not(.exercise-search)').value;
+
+    if (!exerciseId || !setsText.trim()) {
+        showToast('Please select an exercise and enter sets.', 'error');
+        return;
+    }
+
+    fetch('{% url "api_add_sets" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN,
+        },
+        body: JSON.stringify({
+            workout_id: WORKOUT_ID,
+            workout_date: WORKOUT_DATE,
+            exercise_id: exerciseId,
+            sets_text: setsText,
+        }),
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            showToast('Sets saved!', 'success');
+            // Show PR toasts
+            if (data.prs && data.prs.length > 0) {
+                data.prs.forEach((pr, i) => {
+                    setTimeout(() => {
+                        let msg = '🏆 ' + pr.type + '! ' + pr.exercise + ': ';
+                        if (pr.type === 'Weight PR') {
+                            msg += pr.reps + ' reps @ ' + pr.weight + 'kg';
+                        } else if (pr.type === 'Rep PR') {
+                            msg += pr.reps + ' reps @ ' + pr.weight + 'kg';
+                        } else {
+                            msg += pr.sets + 'x' + pr.reps + 'x' + pr.weight;
+                        }
+                        if (pr.previous_value && pr.previous_date) {
+                            msg += ' (beat ' + pr.previous_value + ' from ' + pr.previous_date + ')';
+                        }
+                        showToast(msg, 'pr', 4000);
+                    }, (i + 1) * 1500);
+                });
+            }
+            // Remove "no sets" message if present
+            const noMsg = document.getElementById('no-sets-msg');
+            if (noMsg) noMsg.remove();
+            // Add saved sets to the list
+            const container = document.getElementById('saved-sets');
+            data.sets.forEach(s => {
+                const div = document.createElement('div');
+                div.className = 'saved-set';
+                div.dataset.setId = s.id;
+                div.innerHTML = `
+                    <span>${s.exercise} — Set ${s.set_number}: ${s.reps} reps @ ${s.weight}kg</span>
+                    <button class="delete-set-btn" onclick="deleteSet(${s.id})" title="Delete">✕</button>
+                `;
+                container.appendChild(div);
+            });
+            updateCompactView(exerciseId, row.querySelector('.exercise-search').value, data.sets);
+            // Clear the input but keep the exercise selected
+            row.querySelector('input[type="text"]:not(.exercise-search)').value = '';
+        } else {
+            showToast(data.message, 'error');
+        }
+    })
+    .catch(() => {
+        showToast('Save failed — check your connection.', 'error');
+    });
+}
+
+function deleteSet(setId) {
+    fetch(DELETE_SET_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN,
+        },
+        body: JSON.stringify({ set_id: setId }),
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.status === 'ok') {
+            showToast('Set deleted.', 'success');
+            // Remove from detail view
+            var el = document.querySelector('.saved-set[data-set-id="' + setId + '"]');
+            if (el) el.remove();
+            // Rebuild compact view from remaining detail view items
+            rebuildCompactView();
+        } else {
+            showToast(data.message, 'error');
+        }
+    })
+    .catch(function() {
+        showToast('Delete failed — check your connection.', 'error');
+    });
+}
+
+function togglePR(setId, button) {
+    const TOGGLE_PR_URL = dataEl.dataset.togglePrUrl;
+    fetch(TOGGLE_PR_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN,
+        },
+        body: JSON.stringify({ set_id: setId }),
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            if (data.pr_active) {
+                button.classList.add('active');
+                showToast('🏆 Marked as PR!', 'pr', 3000);
+            } else {
+                button.classList.remove('active');
+                showToast('PR removed.', 'success');
+            }
+        } else {
+            showToast(data.message, 'error');
+        }
+    })
+    .catch(() => {
+        showToast('Failed — check your connection.', 'error');
+    });
+}
+
+function rebuildCompactView() {
+    var compact = document.getElementById('compact-view');
+    var detailSets = document.querySelectorAll('#saved-sets .saved-set');
+    
+    // Group remaining sets by exercise
+    var groups = {};
+    detailSets.forEach(function(div) {
+        var text = div.querySelector('span').textContent;
+        // Parse "Exercise — Set X: Y reps @ Zkg"
+        var parts = text.split(' — Set ');
+        var exerciseName = parts[0];
+        var rest = parts[1]; // "X: Y reps @ Zkg"
+        var match = rest.match(/(\d+): (\d+) reps @ ([\d.]+)kg/);
+        if (match) {
+            if (!groups[exerciseName]) groups[exerciseName] = [];
+            groups[exerciseName].push(match[1] + 'x' + match[2] + 'x' + match[3]);
+        }
+    });
+    
+    // Rebuild compact HTML
+    compact.innerHTML = '';
+    var names = Object.keys(groups);
+    if (names.length === 0) {
+        compact.innerHTML = '<p style="color: #888;">No sets logged yet.</p>';
+    } else {
+        names.forEach(function(name) {
+            var div = document.createElement('div');
+            div.style.cssText = 'padding: 6px 0; border-bottom: 1px solid #eee;';
+            div.innerHTML = '<strong>' + name + ':</strong> <span style="color: #555;">' + groups[name].join(', ') + '</span>';
+            compact.appendChild(div);
+        });
+    }
+}
+
+function toggleView() {
+    const compact = document.getElementById('compact-view');
+    const detail = document.getElementById('detail-view');
+    if (compact.style.display === 'none') {
+        compact.style.display = 'block';
+        detail.style.display = 'none';
+    } else {
+        compact.style.display = 'none';
+        detail.style.display = 'block';
+    }
+}
+
+function updateCompactView(exerciseId, exerciseName, newSets) {
+    const compact = document.getElementById('compact-view');
+    // Find existing row for this exercise
+    let row = compact.querySelector(`[data-exercise-id="${exerciseId}"]`);
+    const newText = newSets.map(s => `${s.set_number}x${s.reps}x${s.weight}`).join(', ');
+    
+    if (row) {
+        // Append to existing
+        const span = row.querySelector('span');
+        span.textContent += ', ' + newText;
+    } else {
+        // Remove "no sets" message if present
+        const noMsg = compact.querySelector('p');
+        if (noMsg) noMsg.remove();
+        // Create new row
+        const div = document.createElement('div');
+        div.style.cssText = 'padding: 6px 0; border-bottom: 1px solid #eee;';
+        div.dataset.exerciseId = exerciseId;
+        div.innerHTML = `<strong>${exerciseName}:</strong> <span style="color: #555;">${newText}</span>`;
+        compact.appendChild(div);
+    }
+}
+
+function showExerciseDropdown(input) {
+    const dropdown = input.closest('.exercise-search-wrapper').querySelector('.exercise-dropdown');
+    dropdown.style.display = 'block';
+    filterExerciseDropdown(input);
+}
+
+function filterExerciseDropdown(input) {
+    const query = input.value.toLowerCase();
+    const wrapper = input.closest('.exercise-search-wrapper');
+    const dropdown = wrapper.querySelector('.exercise-dropdown');
+    const options = dropdown.querySelectorAll('.option');
+    let visibleCount = 0;
+
+    options.forEach(opt => {
+        if (opt.dataset.name.includes(query)) {
+            opt.style.display = 'block';
+            visibleCount++;
+        } else {
+            opt.style.display = 'none';
+        }
+    });
+
+    // Show/remove "no match" message
+    let noMatch = dropdown.querySelector('.no-match');
+    if (visibleCount === 0) {
+        if (!noMatch) {
+            noMatch = document.createElement('div');
+            noMatch.className = 'no-match';
+            noMatch.textContent = 'No exercises found.';
+            dropdown.appendChild(noMatch);
+        }
+    } else if (noMatch) {
+        noMatch.remove();
+    }
+}
+
+function selectExercise(optionEl) {
+    const wrapper = optionEl.closest('.exercise-search-wrapper');
+    const searchInput = wrapper.querySelector('.exercise-search');
+    const hiddenInput = wrapper.querySelector('input[name="quick_exercise"]');
+    const dropdown = wrapper.querySelector('.exercise-dropdown');
+
+    searchInput.value = optionEl.textContent;
+    hiddenInput.value = optionEl.dataset.value;
+    dropdown.style.display = 'none';
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.exercise-search-wrapper')) {
+        document.querySelectorAll('.exercise-dropdown').forEach(d => d.style.display = 'none');
+    }
+});
+
+</script>
+{% endblock %}

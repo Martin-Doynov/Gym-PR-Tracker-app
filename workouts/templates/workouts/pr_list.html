@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Personal Records{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pr-exercise {
+        margin-bottom: 24px;
+    }
+    .pr-exercise h3 {
+        margin-bottom: 8px;
+        color: #1e293b;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 6px;
+    }
+    .pr-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        background: #fffbeb;
+        border-left: 4px solid #d97706;
+        border-radius: 4px;
+        margin-bottom: 6px;
+        font-size: 14px;
+    }
+    .pr-value {
+        font-weight: 700;
+        color: #92400e;
+    }
+    .pr-meta {
+        color: #78716c;
+        font-size: 12px;
+    }
+    .pr-type-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 600;
+        color: white;
+        margin-right: 8px;
+    }
+    .pr-type-badge.weight { background: #2563eb; }
+    .pr-type-badge.reps { background: #16a34a; }
+    .pr-type-badge.sets { background: #9333ea; }
+    .no-prs {
+        text-align: center;
+        color: #94a3b8;
+        padding: 40px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>🏆 Personal Records</h2>
+        <a href="{% url 'pr_add' %}" class="btn" style="background: #d97706; font-size: 13px;">+ Add Manual PR</a>
+    </div>
+
+    <form method="get" style="display: flex; gap: 10px; margin: 16px 0; flex-wrap: wrap; align-items: center;">
+        <select name="exercise" onchange="this.form.submit()" style="padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1;">
+            <option value="">All Exercises</option>
+            {% for ex in exercises %}
+                <option value="{{ ex.id }}" {% if exercise_filter == ex.id|stringformat:"d" %}selected{% endif %}>
+                    {{ ex.name }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <select name="type" onchange="this.form.submit()" style="padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1;">
+            <option value="">All Types</option>
+            <option value="weight" {% if type_filter == "weight" %}selected{% endif %}>Weight PR</option>
+            <option value="reps" {% if type_filter == "reps" %}selected{% endif %}>Rep PR</option>
+            <option value="sets" {% if type_filter == "sets" %}selected{% endif %}>Set PR</option>
+        </select>
+
+        {% if exercise_filter or type_filter %}
+            <a href="/prs/" style="font-size: 13px; color: #64748b;">Clear filters</a>
+        {% endif %}
+    </form>
+
+    {% if grouped_prs %}
+        {% for exercise_name, prs in grouped_prs.items %}
+        <div class="pr-exercise">
+            <h3>{{ exercise_name }}</h3>
+            {% for pr in prs %}
+            <div class="pr-card">
+                <div>
+                    <span class="pr-type-badge {{ pr.pr_type }}">{{ pr.get_pr_type_display }}</span>
+                    <span class="pr-value">
+                        {% if pr.pr_type == "weight" %}
+                            {{ pr.reps }} reps @ {{ pr.weight }}kg
+                        {% elif pr.pr_type == "reps" %}
+                            {{ pr.reps }} reps @ {{ pr.weight }}kg
+                        {% elif pr.pr_type == "sets" %}
+                            {{ pr.sets }}x{{ pr.reps }}x{{ pr.weight }}
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="pr-meta">
+                    {{ pr.date }}
+                    {% if pr.previous_value and pr.previous_date %}
+                        <br>Beat {{ pr.previous_value }} from {{ pr.previous_date }}
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="no-prs">No personal records yet. Start logging workouts!</p>
+    {% endif %}
+</div>
+{% endblock %}
