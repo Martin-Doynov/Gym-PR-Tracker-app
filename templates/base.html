@@ -90,6 +90,46 @@
             font-size: 12px;
             color: #888;
         }
+        .hamburger {
+            display: none;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+        @media (max-width: 600px) {
+            .hamburger {
+                display: block;
+            }
+            .nav-links {
+                display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: #1e293b;
+                flex-direction: column;
+                padding: 10px 0;
+                z-index: 999;
+            }
+            .nav-links.open {
+                display: flex;
+            }
+            .nav-links a {
+                margin: 0;
+                padding: 12px 20px;
+                border-top: 1px solid #334155;
+            }
+            .nav-links a:hover {
+                background: #334155;
+                text-decoration: none;
+            }
+            nav {
+                position: relative;
+            }
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -98,7 +138,7 @@
     <nav>
         <a href="/" class="nav-brand" style="text-decoration:none;">Gym Tracker</a>
         <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')">☰</button>
-        <div>
+        <div class="nav-links">
             <a href="/">Dashboard</a>
             <a href="/exercises/">Exercises</a>
             <a href="/workout/">Log Workout</a>
