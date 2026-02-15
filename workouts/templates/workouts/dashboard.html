@@ -78,6 +78,46 @@
     .calendar-nav a:hover {
         background: #f0f0f0;
     }
+    .hamburger {
+    display: none;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+@media (max-width: 600px) {
+    .hamburger {
+        display: block;
+    }
+    .nav-links {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #1e293b;
+        flex-direction: column;
+        padding: 10px 0;
+        z-index: 999;
+    }
+    .nav-links.open {
+        display: flex;
+    }
+    .nav-links a {
+        margin: 0;
+        padding: 12px 20px;
+        border-top: 1px solid #334155;
+    }
+    .nav-links a:hover {
+        background: #334155;
+        text-decoration: none;
+    }
+    nav {
+        position: relative;
+    }
+}
     .calendar-nav h2 {
         margin: 0;
     }
@@ -126,7 +166,34 @@
     <!-- Calendar navigation -->
     <div class="calendar-nav">
         <a href="?year={{ prev_year }}&month={{ prev_month }}{% if exercise_filter_id %}&exercise={{ exercise_filter_id }}{% endif %}{% if show_prs %}&show_prs=1{% endif %}">◀ Prev</a>
-        <h2>{{ month_name }} {{ year }}</h2>
+        <div style="position: relative;">
+            <h2 style="cursor: pointer; user-select: none;" onclick="toggleMonthPicker()" title="Jump to month">
+                {{ month_name }} {{ year }} <span style="font-size: 14px;">▼</span>
+            </h2>
+            <div id="month-picker" style="display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+                background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px; z-index: 100;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 220px;">
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <select id="picker-month" style="flex: 1; margin-bottom: 0;">
+                        <option value="1" {% if month == 1 %}selected{% endif %}>January</option>
+                        <option value="2" {% if month == 2 %}selected{% endif %}>February</option>
+                        <option value="3" {% if month == 3 %}selected{% endif %}>March</option>
+                        <option value="4" {% if month == 4 %}selected{% endif %}>April</option>
+                        <option value="5" {% if month == 5 %}selected{% endif %}>May</option>
+                        <option value="6" {% if month == 6 %}selected{% endif %}>June</option>
+                        <option value="7" {% if month == 7 %}selected{% endif %}>July</option>
+                        <option value="8" {% if month == 8 %}selected{% endif %}>August</option>
+                        <option value="9" {% if month == 9 %}selected{% endif %}>September</option>
+                        <option value="10" {% if month == 10 %}selected{% endif %}>October</option>
+                        <option value="11" {% if month == 11 %}selected{% endif %}>November</option>
+                        <option value="12" {% if month == 12 %}selected{% endif %}>December</option>
+                    </select>
+                    <input type="number" id="picker-year" value="{{ year }}" min="2000" max="2099"
+                        style="width: 80px; margin-bottom: 0;">
+                </div>
+                <button type="button" class="btn" onclick="jumpToMonth()" style="width: 100%; padding: 8px;">Go</button>
+            </div>
+        </div>
         <a href="?year={{ next_year }}&month={{ next_month }}{% if exercise_filter_id %}&exercise={{ exercise_filter_id }}{% endif %}{% if show_prs %}&show_prs=1{% endif %}">Next ▶</a>
     </div>
 
@@ -287,5 +354,30 @@ function toggleFilterView() {
         detail.style.display = 'block';
     }
 }
+
+function toggleMonthPicker() {
+    var picker = document.getElementById('month-picker');
+    picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+}
+
+function jumpToMonth() {
+    var month = document.getElementById('picker-month').value;
+    var year = document.getElementById('picker-year').value;
+    var params = 'year=' + year + '&month=' + month;
+    {% if exercise_filter_id %}
+    params += '&exercise={{ exercise_filter_id }}';
+    {% endif %}
+    {% if show_prs %}
+    params += '&show_prs=1';
+    {% endif %}
+    window.location.href = '?' + params;
+}
+
+// Close picker when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#month-picker') && !e.target.closest('.calendar-nav h2')) {
+        document.getElementById('month-picker').style.display = 'none';
+    }
+});
 </script>
 {% endblock %}

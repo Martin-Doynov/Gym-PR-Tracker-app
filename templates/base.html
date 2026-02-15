@@ -97,6 +97,7 @@
     {% if user.is_authenticated %}
     <nav>
         <a href="/" class="nav-brand" style="text-decoration:none;">Gym Tracker</a>
+        <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')">☰</button>
         <div>
             <a href="/">Dashboard</a>
             <a href="/exercises/">Exercises</a>
