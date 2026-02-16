@@ -7,7 +7,7 @@ from .models import Exercise, PersonalRecord
 class ExerciseForm(forms.ModelForm):
     class Meta:
         model = Exercise
-        fields = ['name', 'description', 'photo']
+        fields = ['name', 'description']
 
 class ManualPRForm(forms.Form):
     exercise = forms.ModelChoiceField(queryset=Exercise.objects.none())

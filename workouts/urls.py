@@ -18,4 +18,6 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('media/<path:path>', views.serve_media, name='serve_media'),
     path('api/create-exercise/', views.api_create_exercise, name='api_create_exercise'),
+    path('api/upload-media/', views.api_upload_media, name='api_upload_media'),
+    path('api/delete-media/', views.api_delete_media, name='api_delete_media'),
     ]

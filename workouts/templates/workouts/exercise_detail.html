@@ -4,12 +4,15 @@
 
 {% block extra_css %}
 <style>
-    .exercise-photo {
-        max-width: 100%;
-        max-height: 400px;
-        border-radius: 8px;
-        margin-top: 15px;
-        object-fit: contain;
+    .media-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    .media-item img, .media-item video {
+        max-width: 200px;
+        border-radius: 6px;
     }
     .exercise-meta {
         font-size: 12px;
@@ -40,8 +43,21 @@
         <p style="color: #aaa; margin-top: 10px; font-style: italic;">No description provided.</p>
     {% endif %}
 
-    {% if exercise.photo %}
-        <img src="{{ exercise.photo.url }}" alt="{{ exercise.name }}" class="exercise-photo">
+    {% if exercise.media.all %}
+    <div style="margin-top: 15px;">
+        <h3>Media</h3>
+        <div class="media-grid">
+            {% for m in exercise.media.all %}
+            <div class="media-item">
+                {% if m.is_video %}
+                    <video src="/media/{{ m.file.name }}" controls></video>
+                {% else %}
+                    <img src="/media/{{ m.file.name }}" alt="{{ exercise.name }}">
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
     {% endif %}
 
     {% if exercise.user %}

@@ -15,6 +15,8 @@ from django.contrib.auth import logout
 from django.db.models import Count
 from django.core.files.storage import default_storage
 from django.http import HttpResponse
+from .models import Exercise, Workout, WorkoutSet, PersonalRecord, ExerciseMedia, WorkoutMedia
+import os
 
 @login_required
 def pr_add(request):
@@ -562,3 +564,67 @@ def api_create_exercise(request):
         })
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    
+@login_required
+@require_POST
+def api_upload_media(request):
+    """Upload images/videos to an exercise or workout. Superuser only."""
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
+
+    target_type = request.POST.get('target_type')
+    target_id = request.POST.get('target_id')
+    files = request.FILES.getlist('files')
+
+    if not files:
+        return JsonResponse({'status': 'error', 'message': 'No files provided.'}, status=400)
+
+    ALLOWED_IMAGE = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+    ALLOWED_VIDEO = {'.mp4', '.mov', '.webm', '.avi'}
+
+    created = []
+    for f in files:
+        ext = os.path.splitext(f.name)[1].lower()
+        if ext not in ALLOWED_IMAGE and ext not in ALLOWED_VIDEO:
+            return JsonResponse({'status': 'error', 'message': f'Unsupported file type: {ext}'}, status=400)
+        is_video = ext in ALLOWED_VIDEO
+
+        if target_type == 'exercise':
+            exercise = get_object_or_404(Exercise, pk=target_id)
+            media = ExerciseMedia.objects.create(exercise=exercise, file=f, is_video=is_video)
+        elif target_type == 'workout':
+            workout = get_object_or_404(Workout, pk=target_id, user=request.user)
+            media = WorkoutMedia.objects.create(workout=workout, file=f, is_video=is_video)
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Invalid target type.'}, status=400)
+
+        created.append({
+            'id': media.id,
+            'url': f'/media/{media.file.name}',
+            'is_video': media.is_video,
+        })
+
+    return JsonResponse({'status': 'ok', 'media': created})
+
+
+@login_required
+@require_POST
+def api_delete_media(request):
+    """Delete a media file. Superuser only."""
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
+
+    data = json.loads(request.body)
+    target_type = data.get('target_type')
+    media_id = data.get('media_id')
+
+    if target_type == 'exercise':
+        media = get_object_or_404(ExerciseMedia, pk=media_id)
+    elif target_type == 'workout':
+        media = get_object_or_404(WorkoutMedia, pk=media_id)
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Invalid target type.'}, status=400)
+
+    media.file.delete()
+    media.delete()
+    return JsonResponse({'status': 'ok'})

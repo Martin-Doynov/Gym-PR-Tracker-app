@@ -213,6 +213,39 @@
     <a href="{% url 'dashboard' %}" class="btn" style="background: #6b7280;">← Back to Dashboard</a>
 </div>
 
+<!-- Workout Media -->
+{% if workout %}
+<div class="card" style="margin-top: 20px;">
+    <h3>Workout Media</h3>
+
+    {% if workout.media.all %}
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+        {% for m in workout.media.all %}
+        <div style="position: relative;" data-media-id="{{ m.id }}">
+            {% if m.is_video %}
+                <video src="/media/{{ m.file.name }}" controls style="max-width: 200px; border-radius: 6px;"></video>
+            {% else %}
+                <img src="/media/{{ m.file.name }}" alt="Workout media" style="max-width: 200px; border-radius: 6px;">
+            {% endif %}
+            {% if user.is_superuser %}
+                <button onclick="deleteWorkoutMedia({{ m.id }}, this)" style="position: absolute; top: 4px; right: 4px; background: #dc2626; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px;">✕</button>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+        <p style="color: #888; margin-top: 10px;">No media attached.</p>
+    {% endif %}
+
+    {% if user.is_superuser %}
+    <div style="margin-top: 10px;">
+        <input type="file" id="workout-media-upload" multiple accept="image/*,video/*">
+        <button type="button" class="btn" onclick="uploadWorkoutMedia()" style="margin-top: 5px;">Upload</button>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <!-- Toast notification -->
 <div id="toast" class="toast"></div>
 
@@ -546,6 +579,46 @@ document.addEventListener('click', function(e) {
         document.querySelectorAll('.exercise-dropdown').forEach(d => d.style.display = 'none');
     }
 });
+
+function uploadWorkoutMedia() {
+    const input = document.getElementById('workout-media-upload');
+    if (!input.files.length) return;
+    const wid = WORKOUT_ID || document.getElementById('workout-data').dataset.workoutId;
+    if (!wid) {
+        showToast('Log a set first to create the workout.', 'error');
+        return;
+    }
+    const formData = new FormData();
+    formData.append('target_type', 'workout');
+    formData.append('target_id', wid);
+    for (const f of input.files) formData.append('files', f);
+    fetch('{% url "api_upload_media" %}', {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF_TOKEN},
+        body: formData,
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'ok') location.reload();
+        else showToast(data.message, 'error');
+    })
+    .catch(() => showToast('Upload failed.', 'error'));
+}
+
+function deleteWorkoutMedia(mediaId, btn) {
+    if (!confirm('Delete this file?')) return;
+    fetch('{% url "api_delete_media" %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+        body: JSON.stringify({target_type: 'workout', media_id: mediaId}),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'ok') btn.closest('div[data-media-id]').remove();
+        else showToast(data.message, 'error');
+    })
+    .catch(() => showToast('Delete failed.', 'error'));
+}
 
 </script>
 {% endblock %}

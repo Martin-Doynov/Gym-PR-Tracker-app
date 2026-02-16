@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
-
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 
 class Exercise(models.Model):
     """An exercise that a user can perform (e.g., Bench Press, Squat)."""
@@ -13,7 +14,7 @@ class Exercise(models.Model):
     )
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True, default='')
-    photo = models.ImageField(upload_to='exercises/', blank=True, null=True)
+
 
     class Meta:
         # Prevent the same user from creating duplicate exercise names
@@ -116,3 +117,52 @@ class PersonalRecord(models.Model):
 
     def __str__(self):
         return f"PR ({self.get_pr_type_display()}): {self.exercise.name} — {self.sets}x{self.reps}x{self.weight}kg"
+    
+class ExerciseMedia(models.Model):
+    """Images and videos attached to an exercise (superuser only)."""
+    exercise = models.ForeignKey(
+        Exercise,
+        on_delete=models.CASCADE,
+        related_name='media',
+    )
+    file = models.FileField(upload_to='exercises/')
+    is_video = models.BooleanField(default=False)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['uploaded_at']
+
+    def __str__(self):
+        kind = 'Video' if self.is_video else 'Image'
+        return f"{kind} for {self.exercise.name}"
+
+
+class WorkoutMedia(models.Model):
+    """Images and videos attached to a workout (superuser only)."""
+    workout = models.ForeignKey(
+        Workout,
+        on_delete=models.CASCADE,
+        related_name='media',
+    )
+    file = models.FileField(upload_to='workouts/')
+    is_video = models.BooleanField(default=False)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['uploaded_at']
+
+    def __str__(self):
+        kind = 'Video' if self.is_video else 'Image'
+        return f"{kind} for {self.workout}"
+
+
+@receiver(post_delete, sender=ExerciseMedia)
+def delete_exercise_media_file(sender, instance, **kwargs):
+    if instance.file:
+        instance.file.delete(save=False)
+
+
+@receiver(post_delete, sender=WorkoutMedia)
+def delete_workout_media_file(sender, instance, **kwargs):
+    if instance.file:
+        instance.file.delete(save=False)
