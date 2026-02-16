@@ -288,6 +288,14 @@ def api_add_sets(request):
                 'weight': str(ws.weight),
             })
 
+        # Snapshot existing PRs for today before recalculating
+        existing_prs = set(
+            PersonalRecord.objects.filter(
+                user=request.user, exercise=exercise,
+                date=workout.date, is_manual=False,
+            ).values_list('pr_type', 'reps', 'weight', 'sets', flat=False)
+        )
+
         # Recalculate PRs for this exercise
         current_prs = recalculate_prs(request.user, exercise)
         pr_list = [
@@ -302,7 +310,8 @@ def api_add_sets(request):
                 'previous_date': str(pr.previous_date) if pr.previous_date else None,
             }
             for pr in current_prs
-            if pr.date == workout.date  # only show PRs from THIS workout
+            if pr.date == workout.date
+            and (pr.pr_type, pr.reps, pr.weight, pr.sets) not in existing_prs
         ]
 
         return JsonResponse({
