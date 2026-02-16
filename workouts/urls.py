@@ -16,4 +16,5 @@ urlpatterns = [
     path('exercises/<int:pk>/edit/', views.exercise_edit, name='exercise_edit'),
     path('exercises/<int:pk>/delete/', views.exercise_delete, name='exercise_delete'),
     path('logout/', views.logout_view, name='logout'),
+    path('media/<path:path>', views.serve_media, name='serve_media'),
     ]

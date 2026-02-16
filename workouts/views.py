@@ -13,6 +13,8 @@ from operator import attrgetter
 from .services import recalculate_prs
 from django.contrib.auth import logout
 from django.db.models import Count
+from django.core.files.storage import default_storage
+from django.http import HttpResponse
 
 @login_required
 def pr_add(request):
@@ -498,3 +500,28 @@ def exercise_delete(request, pk):
 def logout_view(request):
     logout(request)
     return redirect('/login/')
+
+@login_required
+def serve_media(request, path):
+    """Proxy media files from S3 bucket."""
+    try:
+        f = default_storage.open(path)
+        content = f.read()
+        f.close()
+
+        # Determine content type
+        if path.lower().endswith('.png'):
+            content_type = 'image/png'
+        elif path.lower().endswith('.jpg') or path.lower().endswith('.jpeg'):
+            content_type = 'image/jpeg'
+        elif path.lower().endswith('.gif'):
+            content_type = 'image/gif'
+        elif path.lower().endswith('.webp'):
+            content_type = 'image/webp'
+        else:
+            content_type = 'application/octet-stream'
+
+        return HttpResponse(content, content_type=content_type)
+    except Exception:
+        from django.http import Http404
+        raise Http404("File not found")
