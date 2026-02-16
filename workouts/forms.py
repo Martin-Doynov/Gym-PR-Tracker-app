@@ -1,3 +1,4 @@
+import math
 from django import forms
 from .models import Exercise, Workout, WorkoutSet
 import re
@@ -21,6 +22,9 @@ def parse_sets(text):
     
     Format: AMOUNTxREPSxWEIGHT
     Example: 2x9x5 means 2 sets of 9 reps at 5kg.
+    
+    Struggle reps: 1x15+5+3+4x20
+    Effective reps = 15 + math_ceil((5+3+4) / 2) = 15 + 6 = 21
     """
     sets = []
     entries = re.split(r'[,;\s]+', text.strip())
@@ -35,8 +39,16 @@ def parse_sets(text):
             )
         try:
             amount = int(parts[0])
-            reps = int(parts[1])
             weight = float(parts[2])
+
+            # Handle struggle reps: 15+5+3+4
+            if '+' in parts[1]:
+                rep_parts = parts[1].split('+')
+                base_reps = int(rep_parts[0])
+                struggle_reps = sum(int(r) for r in rep_parts[1:])
+                reps = base_reps + math.ceil(struggle_reps / 2)
+            else:
+                reps = int(parts[1])
         except ValueError:
             raise ValueError(
                 f"Non-numeric value in '{entry}'. Use numbers only (e.g. 2x9x5)."
