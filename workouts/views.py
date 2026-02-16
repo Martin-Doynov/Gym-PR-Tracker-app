@@ -199,7 +199,7 @@ def exercise_add(request):
             exercise = form.save(commit=False)
             exercise.user = request.user
             form.save()
-            return redirect('exercise_list')
+            return redirect('exercise_list', pk=exercise.pk)
     else:
         form = ExerciseForm()
     return render(request, 'workouts/exercise_add.html', {'form': form})
