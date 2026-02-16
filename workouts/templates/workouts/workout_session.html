@@ -214,11 +214,10 @@
 </div>
 
 <!-- Workout Media -->
-{% if workout %}
 <div class="card" style="margin-top: 20px;">
     <h3>Workout Media</h3>
 
-    {% if workout.media.all %}
+    {% if workout and workout.media.all %}
     <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
         {% for m in workout.media.all %}
         <div style="position: relative;" data-media-id="{{ m.id }}">
@@ -244,7 +243,6 @@
     </div>
     {% endif %}
 </div>
-{% endif %}
 
 <!-- Toast notification -->
 <div id="toast" class="toast"></div>
@@ -584,13 +582,13 @@ function uploadWorkoutMedia() {
     const input = document.getElementById('workout-media-upload');
     if (!input.files.length) return;
     const wid = WORKOUT_ID || document.getElementById('workout-data').dataset.workoutId;
-    if (!wid) {
-        showToast('Log a set first to create the workout.', 'error');
-        return;
-    }
     const formData = new FormData();
     formData.append('target_type', 'workout');
-    formData.append('target_id', wid);
+    if (wid) {
+        formData.append('target_id', wid);
+    } else {
+        formData.append('workout_date', WORKOUT_DATE);
+    }
     for (const f of input.files) formData.append('files', f);
     fetch('{% url "api_upload_media" %}', {
         method: 'POST',

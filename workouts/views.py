@@ -3,7 +3,6 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.db.models import Q
 from django.views.decorators.http import require_POST
-from .models import Exercise, Workout, WorkoutSet, PersonalRecord
 from .forms import ExerciseForm, parse_sets
 import datetime
 import json
@@ -198,8 +197,17 @@ def exercise_add(request):
         if form.is_valid():
             exercise = form.save(commit=False)
             exercise.user = request.user
-            form.save()
-            return redirect('exercise_list', pk=exercise.pk)
+            exercise.save()
+
+            # Handle media uploads (superuser only)
+            if request.user.is_superuser:
+                for f in request.FILES.getlist('media_files'):
+                    is_video = f.content_type.startswith('video')
+                    ExerciseMedia.objects.create(
+                        exercise=exercise, file=f, is_video=is_video
+                    )
+
+            return redirect('exercise_list')
     else:
         form = ExerciseForm()
     return render(request, 'workouts/exercise_add.html', {'form': form})
@@ -529,6 +537,14 @@ def serve_media(request, path):
             content_type = 'image/gif'
         elif path.lower().endswith('.webp'):
             content_type = 'image/webp'
+        elif path.lower().endswith('.mp4'):
+            content_type = 'video/mp4'
+        elif path.lower().endswith('.mov'):
+            content_type = 'video/quicktime'
+        elif path.lower().endswith('.webm'):
+            content_type = 'video/webm'
+        elif path.lower().endswith('.avi'):
+            content_type = 'video/x-msvideo'
         else:
             content_type = 'application/octet-stream'
 
@@ -593,7 +609,16 @@ def api_upload_media(request):
             exercise = get_object_or_404(Exercise, pk=target_id)
             media = ExerciseMedia.objects.create(exercise=exercise, file=f, is_video=is_video)
         elif target_type == 'workout':
-            workout = get_object_or_404(Workout, pk=target_id, user=request.user)
+            if target_id:
+                workout = get_object_or_404(Workout, pk=target_id, user=request.user)
+            else:
+                # Create workout on the fly from date
+                workout_date = request.POST.get('workout_date')
+                workout, _ = Workout.objects.get_or_create(
+                    user=request.user,
+                    date=datetime.date.fromisoformat(workout_date),
+                    defaults={'notes': ''},
+                )
             media = WorkoutMedia.objects.create(workout=workout, file=f, is_video=is_video)
         else:
             return JsonResponse({'status': 'error', 'message': 'Invalid target type.'}, status=400)
