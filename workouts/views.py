@@ -534,3 +534,31 @@ def serve_media(request, path):
     except Exception:
         from django.http import Http404
         raise Http404("File not found")
+    
+
+@login_required
+@require_POST
+def api_create_exercise(request):
+    try:
+        data = json.loads(request.body)
+        name = data.get('name', '').strip()
+
+        if not name:
+            return JsonResponse({'status': 'error', 'message': 'Name is required.'}, status=400)
+
+        # Check if it already exists for this user or globally
+        existing = Exercise.objects.filter(
+            Q(user=request.user) | Q(user__isnull=True),
+            name__iexact=name,
+        ).first()
+
+        if existing:
+            return JsonResponse({'status': 'error', 'message': 'Exercise already exists.'}, status=400)
+
+        exercise = Exercise.objects.create(user=request.user, name=name)
+        return JsonResponse({
+            'status': 'ok',
+            'exercise': {'id': exercise.pk, 'name': exercise.name},
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)

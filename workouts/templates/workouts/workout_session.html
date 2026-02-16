@@ -127,6 +127,7 @@
      data-add-sets-url="{% url 'api_add_sets' %}"
      data-delete-set-url="{% url 'api_delete_set' %}"
      data-toggle-pr-url="{% url 'api_toggle_pr' %}"
+     data-create-exercise-url="{% url 'api_create_exercise' %}"
      style="display:none;">
 </div>
 
@@ -457,7 +458,7 @@ function filterExerciseDropdown(input) {
     const query = input.value.toLowerCase();
     const wrapper = input.closest('.exercise-search-wrapper');
     const dropdown = wrapper.querySelector('.exercise-dropdown');
-    const options = dropdown.querySelectorAll('.option');
+    const options = dropdown.querySelectorAll('.option:not(.create-option)');
     let visibleCount = 0;
 
     options.forEach(opt => {
@@ -469,18 +470,63 @@ function filterExerciseDropdown(input) {
         }
     });
 
-    // Show/remove "no match" message
+    // Remove old no-match and create-option
     let noMatch = dropdown.querySelector('.no-match');
-    if (visibleCount === 0) {
-        if (!noMatch) {
-            noMatch = document.createElement('div');
-            noMatch.className = 'no-match';
-            noMatch.textContent = 'No exercises found.';
-            dropdown.appendChild(noMatch);
-        }
-    } else if (noMatch) {
-        noMatch.remove();
+    if (noMatch) noMatch.remove();
+    let createOpt = dropdown.querySelector('.create-option');
+    if (createOpt) createOpt.remove();
+
+    if (visibleCount === 0 && query.length > 0) {
+        const createDiv = document.createElement('div');
+        createDiv.className = 'option create-option';
+        createDiv.style.color = '#16a34a';
+        createDiv.style.fontWeight = '600';
+        createDiv.textContent = '+ Create "' + input.value.trim() + '"';
+        createDiv.onclick = function() { createExercise(input.value.trim(), wrapper); };
+        dropdown.appendChild(createDiv);
     }
+}
+
+function createExercise(name, wrapper) {
+    const url = document.getElementById('workout-data').dataset.createExerciseUrl;
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN,
+        },
+        body: JSON.stringify({ name: name }),
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            const ex = data.exercise;
+            // Add to all dropdowns on the page
+            document.querySelectorAll('.exercise-dropdown').forEach(dropdown => {
+                const opt = document.createElement('div');
+                opt.className = 'option';
+                opt.dataset.value = ex.id;
+                opt.dataset.name = ex.name.toLowerCase();
+                opt.textContent = ex.name;
+                opt.onclick = function() { selectExercise(opt); };
+                // Insert before any create-option
+                const createOpt = dropdown.querySelector('.create-option');
+                if (createOpt) {
+                    dropdown.insertBefore(opt, createOpt);
+                } else {
+                    dropdown.appendChild(opt);
+                }
+            });
+            // Select it in the current row
+            wrapper.querySelector('.exercise-search').value = ex.name;
+            wrapper.querySelector('input[name="quick_exercise"]').value = ex.id;
+            wrapper.querySelector('.exercise-dropdown').style.display = 'none';
+            showToast('Exercise "' + ex.name + '" created!', 'success');
+        } else {
+            showToast(data.message, 'error');
+        }
+    })
+    .catch(() => showToast('Failed to create exercise.', 'error'));
 }
 
 function selectExercise(optionEl) {
